@@ -1,8 +1,8 @@
 #!/bin/bash
 
-HELP="usage: $0 [-d mydomain.com] (default \`automation.local\`)\\n
-[-m myhost.mydomain.com] (default \`smtp.automation.local\`)\\n
-[-f admin@automation.local] - sender address (default \`admin@automation.local\`)\\n
+HELP="usage: $0 [-d mydomain.com] (default \`hostname\`)\\n
+[-m myhost.mydomain.com] (default \`hostname\`)\\n
+[-f admin@automation.local] - sender address (default \`root@locahost\`)\\n
 [-a admin1@destdomain.com,admin2@otherdomain.com] - comma separated root destination addresses\\n
 [-r relayhost.relaydomain.com] - relayhost fqdn - mandatory\\n
 [-t smtp|authsmtp] - choose plain smtp (tcp port 25) or ssl/smtp-auth (tcp port 587) - mandatory\\n
@@ -21,13 +21,12 @@ HELP="usage: $0 [-d mydomain.com] (default \`automation.local\`)\\n
 ./postfix-relay-host.sh -r authsmtp.somedomain.com -t authsmtp -u smtpuser@mydomain.com:password -f user@mydomain.com -a admin1@mydomain.com,admin2@mydomain.com\\n
 "
 
-while getopts "d:m:f:a:r:t:s:p:c:k:u:h" opt
+while getopts "d:m:f:a:n:r:t:s:p:c:k:u:h" opt
      do
         case $opt in
-                d  ) myDomain=$OPTARG ;;
-                m  ) myHost=$OPTARG ;;
                 f  ) myFrom=$OPTARG ;;
                 a  ) myTo=$OPTARG ;;
+                n  ) myNet=$OPTARG ;;
                 r  ) relayHost=$OPTARG ;;
                 t  ) smtp=$OPTARG ;;
                 s  ) tls=$OPTARG ;;
@@ -43,6 +42,8 @@ done
 shift $(($OPTIND - 1))
 
 postfixHome=/etc/postfix
+myHost=`hostname`
+myDomain=`hostname`
 
 function bck_conffile() {
     CFG=$1
@@ -85,31 +86,12 @@ else
     exit 1
 fi
 
-if [ -n "$myHost" ]; then
-    if ! check_hostname $myHost; then
-        echo "-m option: wrong argument"
-        exit 1
-    fi
-else
-    myHost=`hostname`
-    if ! check_hostname $myHost; then
-        echo "Error: wrong hostname or hostname not defined"
-        exit 1
-    fi
+# check parameters
+if [ -z "$myNet" ]; then
+    echo "-n parameter is mandatory"
+    exit 1
 fi
 
-if [ -n "$myDomain" ]; then
-    if ! check_hostname $myDomain; then
-        echo "-m option: wrong argument"
-        exit 1
-    fi
-else
-    myDomain=`hostname`
-    if ! check_hostname $myDomain; then
-        echo "Error: wrong domain name or domain not defined"
-        exit 1
-    fi
-fi
 
 if [ -n "$smtp" ]; then
     if ! echo "$smtp" | grep -q -E "^smtp$|^authsmtp$"; then
@@ -128,11 +110,12 @@ else
     myFrom='admin@automation.local'
 fi
 
+
 # comma separated recipient address list: destination addresses for messages delivered to root
 if [ -n "${myTo}" ]; then
-	for RCPT in $(echo ${myTo} | sed -e 's/,/ /g'); do
+    for RCPT in $(echo ${myTo} | sed -e 's/,/ /g'); do
         check_mail_addr ${RCPT} || exit 1
-	done
+    done
 else
     echo "-a parameter is mandatory"
     exit 1
@@ -170,6 +153,7 @@ fi
 
 echo "hostname: $myHost"
 echo "domain: $myDomain"
+echo "From: $myFrom"
 echo "relayhost: $relayHost"
 
 cd $postfixHome || exit 1
@@ -178,12 +162,12 @@ cd $postfixHome || exit 1
 if [ "$smtp" == "smtp" ]; then
     bck_conffile main.cf
     echo $myDomain > /etc/mailname
-    sed -e "s/MYDOMAIN/${myDomain}/g; s/MYHOST/${myHost}/g; s/RELAYHOST/${relayHost}/g; s/MYCERTFILE/${cert}/g; s/MYKEYFILE/${key}/g" templates/main-smtp.cf.tpl > main.cf
+    sed -e "s#MYDOMAIN#${myDomain}#g; s#MYHOST#${myHost}#g; s#RELAYHOST#${relayHost}#g; s#MYCERTFILE#${cert}#g; s#MYKEYFILE#${key}#g; s#MYNET#${myNet}#g" templates/main-smtp.cf.tpl > main.cf
 else
 # main config file: authsmtp.
     bck_conffile main.cf
     echo $myDomain > /etc/mailname
-    sed -e "s/MYDOMAIN/${myDomain}/g; s/MYHOST/${myHost}/g; s/RELAYHOST/${relayHost}/g; s/MYCERTFILE/${cert}/g; s/MYKEYFILE/${key}/g" templates/main-authsmtp.cf.tpl > main.cf
+    sed -e "s#MYDOMAIN#${myDomain}#g; s#MYHOST#${myHost}#g; s#RELAYHOST#${relayHost}#g; s#MYCERTFILE#${cert}#g; s#MYKEYFILE#${key}#g; s#MYNET#${myNet}#g" templates/main-authsmtp.cf.tpl > main.cf
 
     bck_conffile relay_passwords
     sed -e "s/RELAYHOST/${relayHost}/g; s/SMTPUSER/${smtpUser}/g" templates/relay_passwords.tpl > relay_passwords
@@ -207,10 +191,14 @@ bck_conffile recipient_canonical
 cp templates/recipient_canonical.tpl recipient_canonical
 postmap recipient_canonical
 
-# set the sender address
 bck_conffile sender_canonical
-sed -e "s/MYFROM/${myFrom}/g" templates/sender_canonical.tpl > sender_canonical
+cp templates/sender_canonical.tpl sender_canonical
 postmap sender_canonical
+
+# set the sender address
+bck_conffile generic
+sed -e "s/MYFROM/${myFrom}/g" templates/generic.tpl > generic
+postmap generic
 
 # set the recipient address list for messages delivered to root
 bck_conffile virtual
