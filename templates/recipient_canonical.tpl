@@ -1,2 +1,0 @@
-postmaster root
-apache root

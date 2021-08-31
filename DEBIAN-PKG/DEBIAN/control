@@ -1,0 +1,7 @@
+Package: automation-interface-mta
+Version: RELEASE
+Architecture: all
+Depends: postfix
+Maintainer: LumIT A-Team, automation@lumit.it
+Homepage: https://www.lumit.it
+Description: Automation Interface MTA (commit: GITCOMMIT).

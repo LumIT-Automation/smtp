@@ -4,6 +4,7 @@ HELP="usage: $0 [-d mydomain.com] (default \`hostname\`)\\n
 [-m myhost.mydomain.com] (default \`hostname\`)\\n
 [-f admin@automation.local] - sender address (default \`root@locahost\`)\\n
 [-a admin1@destdomain.com,admin2@otherdomain.com] - comma separated root destination addresses\\n
+[-n xxx.xxx.xxx.xxx/yy] - network from which accept smtp messages to relay\\n
 [-r relayhost.relaydomain.com] - relayhost fqdn - mandatory\\n
 [-t smtp|authsmtp] - choose plain smtp (tcp port 25) or ssl/smtp-auth (tcp port 587) - mandatory\\n
 [-u authsmtpuser:password] - login credentials for authsmtp - mandatory whith -t authsmtp\\n
@@ -186,15 +187,6 @@ else
     fi
 fi
 
-# send to root messages with some daemon users as recipient
-bck_conffile recipient_canonical
-cp templates/recipient_canonical.tpl recipient_canonical
-postmap recipient_canonical
-
-bck_conffile sender_canonical
-cp templates/sender_canonical.tpl sender_canonical
-postmap sender_canonical
-
 # set the sender address
 bck_conffile generic
 sed -e "s/MYFROM/${myFrom}/g" templates/generic.tpl > generic
@@ -210,6 +202,6 @@ if which getenforce > /dev/null; then
     restorecon -RF /etc/postfix
 fi
 
-echo "please restart postfix:"
 echo "command: systemctl restart postfix"
+systemctl restart postfix
 

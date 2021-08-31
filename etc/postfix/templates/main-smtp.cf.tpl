@@ -32,13 +32,13 @@ smtp_tls_CApath=/etc/ssl/certs
 smtp_tls_security_level=may
 smtp_tls_session_cache_database = btree:${data_directory}/smtp_scache
 
+relayhost = RELAYHOST
 
 smtpd_relay_restrictions = permit_mynetworks permit_sasl_authenticated defer_unauth_destination
 myhostname = MYHOST
 alias_maps = hash:/etc/aliases
 alias_database = hash:/etc/aliases
 mydestination = localhost.localdomain, localhost
-relayhost = RELAYHOST
 mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128 MYNET
 mailbox_size_limit = 0
 recipient_delimiter = +
