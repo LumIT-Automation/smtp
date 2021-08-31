@@ -38,13 +38,13 @@ smtpd_relay_restrictions = permit_mynetworks permit_sasl_authenticated defer_una
 myhostname = MYHOST
 alias_maps = hash:/etc/aliases
 alias_database = hash:/etc/aliases
-mydestination = localhost.localdomain, localhost
+mydestination = MYHOST, localhost.localdomain, localhost
 mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128 MYNET
 mailbox_size_limit = 0
 recipient_delimiter = +
 inet_interfaces = all
 inet_protocols = ipv4
-local_recipient_maps =
+# local_recipient_maps =
 virtual_alias_maps = hash:/etc/postfix/virtual
 smtp_generic_maps = hash:/etc/postfix/generic
 

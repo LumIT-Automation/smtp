@@ -84,7 +84,7 @@ function System_definitions()
 
     debCurrentGitCommit=$(git log --pretty=oneline | head -1 | awk '{print $1}')
 
-    projectName="automation-interface-log_${debPackageRelease}_all"
+    projectName="automation-interface-mta_${debPackageRelease}_all"
     workingFolder="/tmp"
     workingFolderPath="${workingFolder}/${projectName}"
 }
