@@ -162,13 +162,25 @@ cd $postfixHome || exit 1
 # main config file: plain smtp.
 if [ "$smtp" == "smtp" ]; then
     bck_conffile main.cf
-    echo $myDomain > /etc/mailname
     sed -e "s#MYDOMAIN#${myDomain}#g; s#MYHOST#${myHost}#g; s#RELAYHOST#${relayHost}#g; s#MYCERTFILE#${cert}#g; s#MYKEYFILE#${key}#g; s#MYNET#${myNet}#g" templates/main-smtp.cf.tpl > main.cf
+
+    # /etc/mailname is debian specific.
+    if grep -qi debian /etc/os-release; then
+        echo $myDomain > /etc/mailname
+    else
+        sed -r -i -e "s/.*myorigin.*/myorigin = $myDomain/" main.cf
+    fi
 else
 # main config file: authsmtp.
     bck_conffile main.cf
-    echo $myDomain > /etc/mailname
     sed -e "s#MYDOMAIN#${myDomain}#g; s#MYHOST#${myHost}#g; s#RELAYHOST#${relayHost}#g; s#MYCERTFILE#${cert}#g; s#MYKEYFILE#${key}#g; s#MYNET#${myNet}#g" templates/main-authsmtp.cf.tpl > main.cf
+
+    # /etc/mailname is debian specific.
+    if grep -qi debian /etc/os-release; then
+        echo $myDomain > /etc/mailname
+    else
+        sed -r -i -e "s/.*myorigin.*/myorigin = $myDomain/" main.cf
+    fi
 
     bck_conffile relay_passwords
     sed -e "s/RELAYHOST/${relayHost}/g; s/SMTPUSER/${smtpUser}/g" templates/relay_passwords.tpl > relay_passwords
