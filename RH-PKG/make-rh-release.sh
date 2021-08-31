@@ -26,17 +26,23 @@ function System()
 #
 function System_run()
 {
-    if [ "$ACTION" == "deb" ]; then
+    if [ "$ACTION" == "rpm" ]; then
         if System_checkEnvironment; then
+            if ! which rpm > /dev/null; then
+                echo "rpm not found, try: apt install rpm"
+                exit 1
+            fi
+
             System_definitions
             System_cleanup
 
             System_systemFilesSetup
-            System_debianFilesSetup
-            System_debCreate
+
+            System_redhatFilesSetup
+            System_rpmCreate
             System_cleanup
 
-            echo "Created /tmp/$projectName.deb"
+            echo "Created /tmp/$rpmPackage"
         else
             echo "A Debian 11 (Bullseye) operating system is required for the deb-ification. Aborting."
             exit 1
@@ -76,27 +82,37 @@ function System_definitions()
     if [ -f DEBIAN-PKG/deb.release ]; then
         # Get program version from the release file.
         debPackageRelease=$(echo $(cat DEBIAN-PKG/deb.release))
+        rpmPackageVer=$(awk -F'-' '{print $1}' DEBIAN-PKG/deb.release)
+        rpmPackageRel=$(awk -F'-' '{print $2}' DEBIAN-PKG/deb.release)
     else
         echo "Error: deb.release missing."
-        echo "Usage: bash DEBIAN-PKG/make-release.sh --action deb"
+        echo "Usage: bash RH/make-rh-release.sh --action rpm"
         exit 1
     fi
 
+    shortName="mta"
+    debArch="all"
+    rpmArch="noarch"
     debCurrentGitCommit=$(git log --pretty=oneline | head -1 | awk '{print $1}')
 
-    projectName="automation-interface-mta_${debPackageRelease}_all"
+    projectName="automation-interface-mta"
     workingFolder="/tmp"
-    workingFolderPath="${workingFolder}/${projectName}"
+    workingFolderPath="${workingFolder}/${projectName}-${rpmPackageVer}"
+
+    rpmPackage=${projectName}-${rpmPackageVer}-${rpmPackageRel}.${rpmArch}.rpm
+    mainSpec=${projectName}.spec
 }
 
 
 function System_cleanup()
-{
-    if [ -n "$workingFolderPath" ]; then
-        if [ -d "$workingFolderPath" ]; then
-            rm -fR "$workingFolderPath"
+{   
+    # List of the directories to be deleted.
+    rmDirs="$workingFolderPath"
+    for dir in $rmDirs; do
+        if [ -d "$dir" ]; then
+            rm -fR "$dir"
         fi
-    fi
+    done
 }
 
 
@@ -120,25 +136,40 @@ function System_systemFilesSetup()
 }
 
 
-function System_debianFilesSetup()
+function System_redhatFilesSetup()
 {
-    # Setting up all the files needed to build the package (DEBIAN folder).
-    cp -R DEBIAN-PKG/DEBIAN $workingFolderPath
+    # Create the rpmbuild tree in $workingFolder.
+    # The path must be passed to rpmbuild with the --define "_topdir <path>" option
+    rpmDirs="RPMS BUILD SOURCES SPECS SRPMS BUILDROOT/${projectName}-${rpmPackageVer}-${rpmPackageRel}.x86_64"
+    for dir in $rpmDirs; do
+        mkdir -p "${workingFolder}/rpmbuild/$dir"
+    done
 
-    sed -i "s/^Version:.*/Version:\ $debPackageRelease/g" $workingFolderPath/DEBIAN/control
-    sed -i "s/GITCOMMIT/$debCurrentGitCommit/g" $workingFolderPath/DEBIAN/control
+    # Copy spec files to build the rpm package.
+    cp RH-PKG/REDHAT/*.spec ${workingFolder}/rpmbuild/SPECS
 
-    [ -f $workingFolderPath/DEBIAN/preinst ] && chmod +x $workingFolderPath/DEBIAN/preinst
-    [ -f $workingFolderPath/DEBIAN/postinst ] && chmod +x $workingFolderPath/DEBIAN/postinst
-    [ -f $workingFolderPath/DEBIAN/prerm ] && chmod +x $workingFolderPath/DEBIAN/prerm
-    [ -f $workingFolderPath/DEBIAN/postrm ] && chmod +x $workingFolderPath/DEBIAN/postrm
+    # Set version, release, source tar in the main spec file. 
+    sed -i "s/RH_VERSION/$rpmPackageVer/g" ${workingFolder}/rpmbuild/SPECS/${mainSpec}
+    sed -i "s/RH_RELEASE/$rpmPackageRel/g" ${workingFolder}/rpmbuild/SPECS/${mainSpec}
+    sed -i "s/RPM_SOURCE/${projectName}.tar/g" ${workingFolder}/rpmbuild/SPECS/${mainSpec}
+
+    # Create the source tar file for the rpm.
+    cd $workingFolder
+    tar pcf ${projectName}.tar ${projectName}-${rpmPackageVer}
+    mv ${projectName}.tar ${workingFolder}/rpmbuild/SOURCES
+    cd -
+
+    # Build the file specs section. List files only, not directories.
+    echo "%files" > ${workingFolder}/rpmbuild/SPECS/files.spec
+    tar tf ${workingFolder}/rpmbuild/SOURCES/${projectName}.tar | grep -Ev '/$' | sed "s#${projectName}-${rpmPackageVer}##g" >> ${workingFolder}/rpmbuild/SPECS/files.spec
 }
 
 
-function System_debCreate()
+function System_rpmCreate()
 {
-    cd $workingFolder
-    dpkg-deb --build $projectName
+    rpmbuild --define "_topdir ${workingFolder}/rpmbuild" -ba ${workingFolder}/rpmbuild/SPECS/${mainSpec}
+    mv ${workingFolder}/rpmbuild/RPMS/${rpmArch}/${rpmPackage} /tmp
+    rm -fr ${workingFolder}/rpmbuild
 }
 
 # ##################################################################################################################################################
@@ -172,7 +203,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [ -z "$ACTION" ]; then
-    echo "Missing parameters. Use --action deb."
+    echo "Missing parameters. Use --action rpm."
 else
     System "system"
     $system_run
