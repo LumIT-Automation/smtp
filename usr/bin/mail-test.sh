@@ -2,12 +2,13 @@
 
 from=$1
 to=$2
-host=$(echo ${f/%@*/})
+myHost=`hostname`
+smtp='mta'
 
 [ -z "$to" ] && echo "Usage: $0 from to" && exit 1
 
 smtp_send() {
-    echo "helo dns"
+    echo "helo $myHost"
     sleep .1
     echo "mail from: $from"
     sleep .1
@@ -26,5 +27,5 @@ smtp_send() {
     echo "quit"
 }
 
-smtp_send | nc 10.0.111.252 25
+smtp_send | nc $smtp 25
 
