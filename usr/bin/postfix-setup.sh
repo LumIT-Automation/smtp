@@ -8,7 +8,7 @@ HELP="usage: $0 [-d mydomain.com] (default \`hostname\`)\\n
 [-r relayhost.relaydomain.com] - relayhost fqdn - mandatory\\n
 [-t smtp|authsmtp] - choose plain smtp (tcp port 25) or ssl/smtp-auth (tcp port 587) - mandatory\\n
 [-u authsmtpuser:password] - login credentials for authsmtp - mandatory whith -t authsmtp\\n
-[-s [1.2|1.3] - set tls policy\\n
+[-s [1.2|1.3] - set tls policy for smtp auth (default 1.2)\\n
 [-p port] - change tcp port for smtp auth\\n
 [-c certfile] - default /etc/pki/tls/certs/localhost.crt\\n
 [-k keyfile] - default /etc/pki/tls/private/localhost.key\\n
@@ -123,11 +123,11 @@ else
 fi
 
 if [ -z "$cert" ]; then
-    cert=localhost.crt
+    cert=ssl-cert-snakeoil.pem
 fi
 
 if [ -z "$key" ]; then
-    key=localhost.key
+    key=ssl-cert-snakeoil.key
 fi
 
 if [ "$smtp" == "authsmtp" ];then
@@ -140,8 +140,6 @@ if [ -n "$tls" ]; then
     if ! echo $tls | grep -Eq '^1.2$|^1.3$'; then
         echo "Error: -s argument can be one of: 1.2, 1.3"
         exit 1
-    else
-        tls="TLSv${tls}"
     fi
 fi
 
@@ -160,38 +158,57 @@ echo "relayhost: $relayHost"
 cd $postfixHome || exit 1
 
 # main config file: plain smtp.
-if [ "$smtp" == "smtp" ]; then
-    bck_conffile main.cf
-    sed -e "s#MYDOMAIN#${myDomain}#g; s#MYHOST#${myHost}#g; s#RELAYHOST#${relayHost}#g; s#MYCERTFILE#${cert}#g; s#MYKEYFILE#${key}#g; s#MYNET#${myNet}#g" templates/main-smtp.cf.tpl > main.cf
+bck_conffile main.cf
+sed -e "s#MYDOMAIN#${myDomain}#g; s#MYHOST#${myHost}#g; s#RELAYHOST#${relayHost}#g; s#MYCERTFILE#${cert}#g; s#MYKEYFILE#${key}#g; s#MYNET#${myNet}#g" templates/main-smtp.cf.tpl > main.cf
 
-    # /etc/mailname is debian specific.
-    if grep -qi debian /etc/os-release; then
-        echo $myDomain > /etc/mailname
-    else
-        sed -r -i -e "s/.*myorigin.*/myorigin = $myDomain/" main.cf
-    fi
+# /etc/mailname is debian specific.
+if grep -qi debian /etc/os-release; then
+    echo $myDomain > /etc/mailname
 else
-# main config file: authsmtp.
-    bck_conffile main.cf
-    sed -e "s#MYDOMAIN#${myDomain}#g; s#MYHOST#${myHost}#g; s#RELAYHOST#${relayHost}#g; s#MYCERTFILE#${cert}#g; s#MYKEYFILE#${key}#g; s#MYNET#${myNet}#g" templates/main-authsmtp.cf.tpl > main.cf
+    sed -r -i -e "s/.*myorigin.*/myorigin = $myDomain/" main.cf
+fi
 
-    # /etc/mailname is debian specific.
-    if grep -qi debian /etc/os-release; then
-        echo $myDomain > /etc/mailname
-    else
-        sed -r -i -e "s/.*myorigin.*/myorigin = $myDomain/" main.cf
+# main config file: authsmtp.
+if [ "$smtp" == "authsmtp" ]; then
+    # Set the relayhost port to 587.
+    sed -i -r '/relayhost/ s/=\s+*(.*)/= \[\1\]:587/' main.cf
+
+    smtpAuthData=$(cat templates/auth_smtp.tpl | sed -e "s/MYCERTFILE/${cert}/g" -e "s/MYKEYFILE/${key}/g" | sed 's#$#\\\\n#g' | tr -d '\n')
+    # Insert $smtpAuthData after the realyhost line.
+    eval "sed -i \"/relayhost/a ${smtpAuthData}\" main.cf"
+
+    # Copy cert/key files.
+    if [ "$cert" != "ssl-cert-snakeoil.pem" ]; then
+        if [ -f /etc/ssl/certs/${cert} ]; then
+            cd /etc/ssl/certs
+            bck_conffile $cert
+            cd -
+        fi
+        cp $cert /etc/ssl/certs
+        chmod 644 /etc/ssl/certs/${cert}
+    fi
+    if [ "$key" != "ssl-cert-snakeoil.key" ]; then
+        if [ -f /etc/ssl/private/${key} ]; then
+            cd /etc/ssl/private
+            bck_conffile $key
+            cd -
+        fi
+        cp $key /etc/ssl/private
+        chmod 400 /etc/ssl/private/${key}
     fi
 
     bck_conffile relay_passwords
     sed -e "s/RELAYHOST/${relayHost}/g; s/SMTPUSER/${smtpUser}/g" templates/relay_passwords.tpl > relay_passwords
     postmap relay_passwords
     chmod 400 relay_passwords relay_passwords.db
-    if [ -n "$tls" ]; then
-        bck_conffile tls_policy
-        sed -i -e "s/# smtp_tls_policy_maps/smtp_tls_policy_maps/g" templates/main.cf
-        sed -e "s/RELAYHOST/${relayHost}/g; s/TLS_VERSION/${tls}/g" templates/tls_policy.tpl > tls_policy
-        postmap tls_policy
+
+    if [ -z "$tls" ]; then
+        tls='1.2' && echo "Using default tls version 1.2."
     fi
+    if (( $(echo "$tls > 1.2" | bc -l ) )); then
+        sed -i '/smtp_tls_mandatory_protocols/ s/$/, TLSv1.2/' main.cf
+    fi
+
     if [ -n "$port" ]; then
         sed -i -e "s/:587/:${port}/g" templates/main.cf
         sed -i -e "s/:587/:${port}/g" templates/relay_passwords

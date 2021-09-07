@@ -1,1 +1,1 @@
-[RELAYHOST]:587 encrypt protocols=TLS_VERSION ciphers=high
+[RELAYHOST]:587 encrypt protocols>=TLS_VERSION ciphers=high
