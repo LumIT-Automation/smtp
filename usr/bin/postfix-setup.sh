@@ -45,6 +45,7 @@ shift $(($OPTIND - 1))
 postfixHome=/etc/postfix
 myHost=`hostname`
 myDomain=`hostname`
+myToString=''
 
 function bck_conffile() {
     CFG=$1
@@ -117,6 +118,7 @@ if [ -n "${myTo}" ]; then
     for RCPT in $(echo ${myTo} | sed -e 's/,/ /g'); do
         check_mail_addr ${RCPT} || exit 1
     done
+    myToString=$(echo ${myTo} | sed -e 's/,/;/g')
 else
     echo "-a parameter is mandatory"
     exit 1
@@ -223,8 +225,13 @@ postmap generic
 
 # set the recipient address list for messages delivered to root
 bck_conffile virtual
-sed -e "s/MYTO/${myTo}/g" templates/virtual.tpl > virtual
+sed -e "s/MYTO/${myToString}/g" templates/virtual.tpl > virtual
 postmap virtual
+
+# Workaround: remove original To: from message headers
+bck_conffile smtp_header_checks
+sed -e "s/MYTO/${myToString}/g" templates/smtp_header_checks.tpl > smtp_header_checks
+postmap smtp_header_checks
 
 # restore selinux context
 if which getenforce > /dev/null; then

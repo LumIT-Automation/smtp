@@ -33,7 +33,8 @@ mailbox_size_limit = 0
 recipient_delimiter = +
 inet_interfaces = all
 inet_protocols = ipv4
-# local_recipient_maps =
 virtual_alias_maps = hash:/etc/postfix/virtual
 smtp_generic_maps = hash:/etc/postfix/generic
+# enable_original_recipient = no # This doesn't seem to work on debian11, the next one is the workaround.
+smtp_header_checks = regexp:/etc/postfix/smtp_header_checks
 
