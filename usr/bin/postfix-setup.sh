@@ -47,6 +47,25 @@ myHost=`hostname`
 myDomain=`hostname`
 myToString=''
 
+
+if grep -qi debian /etc/os-release; then
+    certPath='/etc/ssl/certs'
+    keyPath='/etc/ssl/private'
+    defaultCert='ssl-cert-snakeoil.pem'
+    defaultKey='key=ssl-cert-snakeoil.key'
+else
+    certPath='/etc/pki/tls/certs'
+    keyPath='/etc/pki/tls/private'
+    defaultCert='postfix.pem'
+    defaultKey='postfix.key'
+fi
+if [ -z "$cert" ]; then
+    cert=$defaultCert
+fi
+if [ -z "$key" ]; then
+    key=$defaultKey
+fi
+
 function bck_conffile() {
     CFG=$1
     if [ -a "${CFG}" ]; then
@@ -124,14 +143,6 @@ else
     exit 1
 fi
 
-if [ -z "$cert" ]; then
-    cert=ssl-cert-snakeoil.pem
-fi
-
-if [ -z "$key" ]; then
-    key=ssl-cert-snakeoil.key
-fi
-
 if [ "$smtp" == "authsmtp" ];then
     if [ -z "$smtpUser" ]; then
         echo "-u parameter is mandatory with -t authsmtp"
@@ -161,7 +172,7 @@ cd $postfixHome || exit 1
 
 # main config file: plain smtp.
 bck_conffile main.cf
-sed -e "s#MYDOMAIN#${myDomain}#g; s#MYHOST#${myHost}#g; s#RELAYHOST#${relayHost}#g; s#MYCERTFILE#${cert}#g; s#MYKEYFILE#${key}#g; s#MYNET#${myNet}#g" templates/main-smtp.cf.tpl > main.cf
+sed -e "s#MYDOMAIN#${myDomain}#g; s#MYHOST#${myHost}#g; s#RELAYHOST#${relayHost}#g; s#MYNET#${myNet}#g" templates/main-smtp.cf.tpl > main.cf
 
 # /etc/mailname is debian specific.
 if grep -qi debian /etc/os-release; then
@@ -175,30 +186,32 @@ if [ "$smtp" == "authsmtp" ]; then
     # Set the relayhost port to 587.
     sed -i -r '/relayhost/ s/=\s+*(.*)/= \[\1\]:587/' main.cf
 
-    smtpAuthData=$(cat templates/auth_smtp.tpl | sed -e "s/MYCERTFILE/${cert}/g" -e "s/MYKEYFILE/${key}/g" | sed 's#$#\\\\n#g' | tr -d '\n')
-    # Insert $smtpAuthData after the realyhost line.
-    eval "sed -i \"/relayhost/a ${smtpAuthData}\" main.cf"
-
     # Copy cert/key files.
-    if [ "$cert" != "ssl-cert-snakeoil.pem" ]; then
-        if [ -f /etc/ssl/certs/${cert} ]; then
-            cd /etc/ssl/certs
+    if [ "$cert" != "$defaultCert" ]; then
+        if [ -f ${certPath}/${cert} ]; then
+            cd $certPath
             bck_conffile $cert
             cd -
         fi
-        cp $cert /etc/ssl/certs
-        chmod 644 /etc/ssl/certs/${cert}
+        cp $cert $certPath
+        chmod 644 ${certPaths}/${cert}
     fi
-    if [ "$key" != "ssl-cert-snakeoil.key" ]; then
-        if [ -f /etc/ssl/private/${key} ]; then
-            cd /etc/ssl/private
+    if [ "$key" != "$defaultKey" ]; then
+        if [ -f ${keyPath}/${key} ]; then
+            cd $keyPath
             bck_conffile $key
             cd -
         fi
-        cp $key /etc/ssl/private
-        chmod 400 /etc/ssl/private/${key}
+        cp $key $keyPath
+        chmod 400 ${keyPath}/${key}
     fi
 
+    smtpAuthData=$(cat templates/auth_smtp.tpl | sed -e "s#MYCERTFILE#${certPath}/${cert}#g" -e "s#MYKEYFILE#${keyPath}/${key}#g" | sed 's#$#\\\\n#g' | tr -d '\n')
+    # Insert $smtpAuthData after the realyhost line.
+    eval "sed -i \"/relayhost/a ${smtpAuthData}\" main.cf"
+
+
+    
     bck_conffile relay_passwords
     sed -e "s/RELAYHOST/${relayHost}/g; s/SMTPUSER/${smtpUser}/g" templates/relay_passwords.tpl > relay_passwords
     postmap relay_passwords

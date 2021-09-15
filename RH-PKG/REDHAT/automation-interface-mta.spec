@@ -6,7 +6,7 @@ Summary:    Automation Interface MTA (commit: GITCOMMIT).
 License:    GPLv3+
 Source0:    RPM_SOURCE
 
-Requires:   postfix
+Requires:   postfix, cyrus-sasl-plain, bc
 
 BuildArch:  noarch
 

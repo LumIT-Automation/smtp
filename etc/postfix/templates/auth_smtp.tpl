@@ -1,7 +1,7 @@
 # TLS parameters
 smtp_tls_CApath=/etc/ssl/certs
-smtpd_tls_cert_file = /etc/ssl/certs/MYCERTFILE
-smtpd_tls_key_file = /etc/ssl/private/MYKEYFILE
+smtpd_tls_cert_file = MYCERTFILE
+smtpd_tls_key_file = MYKEYFILE
 smtpd_use_tls = yes
 smtpd_tls_security_level=may
 smtp_tls_security_level=may
