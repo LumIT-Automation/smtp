@@ -1,2 +1,2 @@
-/To:.*/ REPLACE TO: MYTO
+/^To: default-to@automation.local/ REPLACE To: MYTO
 
