@@ -18,9 +18,9 @@ smtp_send() {
     sleep .1
     echo "To: $to"
     sleep .1
-    echo "Subject: prova"
+    echo "Subject: TEST"
     sleep .1
-    echo "provo"
+    echo "TEST"
     sleep .1
     echo .
     sleep 3
