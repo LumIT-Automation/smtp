@@ -2,6 +2,7 @@
 
 if [ "$1" == "purge" ]; then
     echo PURGE | debconf-communicate postfix
+    echo PURGE | debconf-communicate automation-interface-mta
 fi
 
 exit 0

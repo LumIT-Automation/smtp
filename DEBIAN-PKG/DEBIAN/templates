@@ -1,0 +1,56 @@
+Template: automation-interface-mta/choose_smtp_proto
+Type: multiselect
+Choices: smtp, authsmtp, no configuration
+Description: Choose between plain smtp and smtp auth (tls)
+  Choose smtp send protocol
+
+
+Template: automation-interface-mta/from
+Type: string
+Description: Insert the sender mail address
+  Mail From
+
+Template: automation-interface-mta/to
+Type: string
+Description: Insert the recipient mail address
+  Mail TO
+
+Template: automation-interface-mta/relay
+Type: string
+Description: Insert the hostname of the relay host
+  Relay host
+
+Template: automation-interface-mta/allowed_net
+Type: string
+Description: Insert the subnet from which accept messages (usually this is the containers's subnet)
+  Allowed subnet
+
+Template: automation-interface-mta/username
+Type: string
+Description: Insert the username for the relay host
+  Smtp auth username
+
+Template: automation-interface-mta/password
+Type: password
+Description: Insert the password for the relay host
+  Smtp auth password
+
+Template: automation-interface-mta/tls
+Type: string
+Description: Insert the tls minimum version
+  TLS version
+
+Template: automation-interface-mta/tcp_port
+Type: string
+Description: Insert the tcp port for smtp auth
+  Smtp auth tcp port
+
+Template: automation-interface-mta/cert_file
+Type: string
+Description: Insert the path to the certficate file for smtp auth. Leave empty if no certificate was provided
+  Cert file
+
+Template: automation-interface-mta/key_file
+Type: string
+Description: Insert the path to the key file for smtp auth. Leave empty if no key was provided.
+  Key file

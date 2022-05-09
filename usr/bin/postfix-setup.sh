@@ -223,11 +223,11 @@ if [ "$smtp" == "authsmtp" ]; then
     if (( $(echo "$tls > 1.2" | bc -l ) )); then
         sed -i '/smtp_tls_mandatory_protocols/ s/$/, TLSv1.2/' main.cf
     fi
-
+    set -vx
     if [ -n "$port" ]; then
-        sed -i -e "s/:587/:${port}/g" templates/main.cf
-        sed -i -e "s/:587/:${port}/g" templates/relay_passwords
-        [ -n "$tls" ] && sed -i -e "s/:587/:${port}/g" templates/tls_policy
+        sed -i -e "s/:587/:${port}/g" main.cf
+        sed -i -e "s/:587/:${port}/g" relay_passwords
+        [ -n "$tls" ] && sed -e "s/:587/:${port}/g; s#RELAYHOST#${relayHost}#g; s#TLS_VERSION#${tls}#g" templates/tls_policy.tpl > tls_policy && sed -i -e 's/# smtp_tls_policy_maps/smtp_tls_policy_maps/' main.cf && postmap tls_policy
     fi
 fi
 

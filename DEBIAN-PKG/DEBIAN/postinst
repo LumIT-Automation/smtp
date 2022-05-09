@@ -1,0 +1,176 @@
+#!/bin/bash
+
+set -e
+
+. /usr/share/debconf/confmodule # do not move this line.
+
+# Debconf.
+db_version 2.0
+
+db_beginblock
+    db_input critical automation-interface-mta/choose_smtp_proto
+db_endblock
+
+db_go || true
+
+smtp=""
+db_get automation-interface-mta/choose_smtp_proto
+if [ -n "$RET" ]; then
+    smtp="$RET"
+fi
+
+if echo $smtp | grep -q 'smtp'; then
+    db_get automation-interface-mta/from
+    if [ -z "$RET" ]; then
+        # Ask if not preseeded.
+        db_beginblock
+            db_set automation-interface-mta/from "my@mail.address.com" # preset.
+            db_input critical automation-interface-mta/from
+        db_endblock
+    fi
+
+    db_get automation-interface-mta/to
+    if [ -z "$RET" ]; then
+        # Ask if not preseeded.
+        db_beginblock
+            db_set automation-interface-mta/to "yours@mail.address.com" # preset.
+            db_input critical automation-interface-mta/to
+        db_endblock
+    fi
+
+    db_get automation-interface-mta/relay
+    if [ -z "$RET" ]; then
+        # Ask if not preseeded.
+        db_beginblock
+            db_set automation-interface-mta/relay "relay.mail.host.com" # preset.
+            db_input critical automation-interface-mta/relay
+        db_endblock
+    fi
+
+    db_get automation-interface-mta/allowed_net
+    if [ -z "$RET" ]; then
+        # Ask if not preseeded.
+        db_beginblock
+            db_set automation-interface-mta/allowed_net "100.100.100.100/24" # preset.
+            db_input critical automation-interface-mta/allowed_net
+        db_endblock
+    fi
+
+    db_go || true # shared parameters between smtp and authsmtp.
+    
+    db_get automation-interface-mta/from
+    if [ -n "$RET" ]; then
+        mailFrom="$RET"
+    fi
+
+    db_get automation-interface-mta/to
+    if [ -n "$RET" ]; then
+        mailTo="$RET"
+    fi
+
+    db_get automation-interface-mta/relay
+    if [ -n "$RET" ]; then
+        relayHost="$RET"
+    fi
+
+    db_get automation-interface-mta/allowed_net
+    if [ -n "$RET" ]; then
+        allowedNet="$RET"
+    fi
+
+    if echo $smtp | grep -q 'authsmtp'; then
+        db_get automation-interface-mta/username
+        if [ -z "$RET" ]; then
+            # Ask if not preseeded.
+            db_beginblock
+                db_set automation-interface-mta/username "username" # preset.
+                db_input critical automation-interface-mta/username
+            db_endblock
+        fi
+    
+        db_get automation-interface-mta/password
+        if [ -z "$RET" ]; then
+            # Ask if not preseeded.
+            db_beginblock
+                db_set automation-interface-mta/password "" # preset.
+                db_input critical automation-interface-mta/password
+            db_endblock
+        fi
+    
+        db_get automation-interface-mta/tls
+        if [ -z "$RET" ]; then
+            # Ask if not preseeded.
+            db_beginblock
+                db_set automation-interface-mta/tls "1.2" # preset.
+                db_input critical automation-interface-mta/tls
+            db_endblock
+        fi
+    
+        db_get automation-interface-mta/tcp_port
+        if [ -z "$RET" ]; then
+            # Ask if not preseeded.
+            db_beginblock
+                db_set automation-interface-mta/tcp_port "587" # preset.
+                db_input critical automation-interface-mta/tcp_port
+            db_endblock
+        fi
+    
+        db_get automation-interface-mta/cert_file
+        if [ -z "$RET" ]; then
+            # Ask if not preseeded.
+            db_beginblock
+                db_set automation-interface-mta/cert_file "" # preset.
+                db_input critical automation-interface-mta/cert_file
+            db_endblock
+        fi
+    
+        db_get automation-interface-mta/key_file
+        if [ -z "$RET" ]; then
+            # Ask if not preseeded.
+            db_beginblock
+                db_set automation-interface-mta/key_file "" # preset.
+                db_input critical automation-interface-mta/key_file
+            db_endblock
+        fi
+
+        db_go || true # authsmtp only parameters.
+        optionalParams=""
+
+        db_get automation-interface-mta/username
+        if [ -n "$RET" ]; then
+            userName="$RET"
+        fi
+    
+        db_get automation-interface-mta/password
+        if [ -n "$RET" ]; then
+            password="$RET"
+        fi
+    
+        db_get automation-interface-mta/tls
+        if [ -n "$RET" ]; then
+            tls="$RET"
+        fi
+    
+        db_get automation-interface-mta/tcp_port
+        if [ -n "$RET" ]; then
+            tcpPort="$RET"
+        fi
+
+        db_get automation-interface-mta/cert_file
+        if [ -n "$RET" ]; then
+            optionalParams="$optionalParams -c $RET"
+        fi
+    
+        db_get automation-interface-mta/key_file
+        if [ -n "$RET" ]; then
+            optionalParams="$optionalParams -k $RET"
+        fi
+    
+        # authsmtp command.
+        /usr/bin/postfix-setup.sh -f $mailFrom -a $mailTo -t authsmtp -r $relayHost -n $allowedNet -u $userName:$password -s $tls -p $tcpPort $optionalParams
+    else 
+        # plain smtp command.
+        /usr/bin/postfix-setup.sh -f $mailFrom -a $mailTo -t smtp -r $relayHost -n $allowedNet
+    
+    fi
+fi
