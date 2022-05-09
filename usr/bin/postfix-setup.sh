@@ -52,7 +52,7 @@ if grep -qi debian /etc/os-release; then
     certPath='/etc/ssl/certs'
     keyPath='/etc/ssl/private'
     defaultCert='ssl-cert-snakeoil.pem'
-    defaultKey='key=ssl-cert-snakeoil.key'
+    defaultKey='ssl-cert-snakeoil.key'
 else
     certPath='/etc/pki/tls/certs'
     keyPath='/etc/pki/tls/private'
@@ -221,13 +221,12 @@ if [ "$smtp" == "authsmtp" ]; then
         tls='1.2' && echo "Using default tls version 1.2."
     fi
     if (( $(echo "$tls > 1.2" | bc -l ) )); then
-        sed -i '/smtp_tls_mandatory_protocols/ s/$/, TLSv1.2/' main.cf
+        sed -i '/smtp_tls_mandatory_protocols/ s/$/, !TLSv1.2/' main.cf
     fi
-    set -vx
+
     if [ -n "$port" ]; then
         sed -i -e "s/:587/:${port}/g" main.cf
         sed -i -e "s/:587/:${port}/g" relay_passwords
-        [ -n "$tls" ] && sed -e "s/:587/:${port}/g; s#RELAYHOST#${relayHost}#g; s#TLS_VERSION#${tls}#g" templates/tls_policy.tpl > tls_policy && sed -i -e 's/# smtp_tls_policy_maps/smtp_tls_policy_maps/' main.cf && postmap tls_policy
     fi
 fi
 

@@ -11,4 +11,3 @@ smtp_sasl_auth_enable = yes
 smtp_sasl_password_maps = hash:/etc/postfix/relay_passwords
 smtp_sasl_security_options = noanonymous
 smtp_tls_mandatory_protocols = !SSLv2, !SSLv3, !TLSv1, !TLSv1.1
-smtp_tls_policy_maps = hash:/etc/postfix/tls_policy
