@@ -13,6 +13,8 @@ BuildArch:  noarch
 %description
 automation-interface-mta
 
+%include %{_topdir}/SPECS/postinst.spec
+
 %prep
 %setup  -q #unpack tarball
 

@@ -186,7 +186,7 @@ if [ "$1" == "configure" ]; then
                     srv=y
                 fi 
                 if [ "$srv" == "y" ] && [ -z "$line" ]; then
-                    echo -e 'Restart=on-failure\nRestartSec=5s'
+                    echo -e 'Restart=on-failure\nRestartSec=1min'
                     srv=n
                 fi
                 echo $line
