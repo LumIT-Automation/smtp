@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -e
-
 . /usr/share/debconf/confmodule # do not move this line.
 
 if [ "$1" == "configure" ]; then
